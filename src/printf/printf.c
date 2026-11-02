@@ -244,7 +244,7 @@ typedef uint32_t double_uint_t;
 #define DOUBLE_EXPONENT_MASK 0xFFU
 #define DOUBLE_BASE_EXPONENT 127
 #define DOUBLE_MAX_SUBNORMAL_EXPONENT_OF_10 -38
-#define DOUBLE_MAX_SUBNORMAL_POWER_OF_10 1e-38
+#define DOUBLE_MAX_SUBNORMAL_POWER_OF_10 1e-38L
 
 #elif DBL_MANT_DIG == 53
 
@@ -253,7 +253,7 @@ typedef uint64_t double_uint_t;
 #define DOUBLE_EXPONENT_MASK 0x7FFU
 #define DOUBLE_BASE_EXPONENT 1023
 #define DOUBLE_MAX_SUBNORMAL_EXPONENT_OF_10 -308
-#define DOUBLE_MAX_SUBNORMAL_POWER_OF_10 1e-308
+#define DOUBLE_MAX_SUBNORMAL_POWER_OF_10 1e-308L
 
 #else
 #error "Unsupported double type configuration"
@@ -360,7 +360,7 @@ static inline void putchar_wrapper(char c, void* unused)
   fputc(c,stdout);
 }
 
-static inline output_gadget_t discarding_gadget()
+static inline output_gadget_t discarding_gadget(void)
 {
   output_gadget_t gadget;
   gadget.function = NULL;
@@ -392,7 +392,7 @@ static inline output_gadget_t function_gadget(void (*function)(char, void*), voi
   return result;
 }
 
-static inline output_gadget_t extern_putchar_gadget()
+static inline output_gadget_t extern_putchar_gadget(void)
 {
   return function_gadget(putchar_wrapper, NULL);
 }
@@ -589,7 +589,7 @@ static struct double_components get_components(double number, printf_size_t prec
 
   remainder -= (double) number_.fractional;
 
-  if (remainder > 0.5) {
+  if (remainder > (double)0.5) {
     ++number_.fractional;
     // handle rollover, e.g. case 0.99 with precision 1 is 1.0
     if ((double) number_.fractional >= powers_of_10[precision]) {
@@ -597,14 +597,14 @@ static struct double_components get_components(double number, printf_size_t prec
       ++number_.integral;
     }
   }
-  else if ((remainder == 0.5) && ((number_.fractional == 0U) || (number_.fractional & 1U))) {
+  else if ((remainder == (double)0.5) && ((number_.fractional == 0U) || (number_.fractional & 1U))) {
     // if halfway, round up if odd OR if last digit is 0
     ++number_.fractional;
   }
 
   if (precision == 0U) {
     remainder = abs_number - (double) number_.integral;
-    if ((!(remainder < 0.5) || (remainder > 0.5)) && (number_.integral & 1)) {
+    if ((!(remainder < (double)0.5) || (remainder > (double)0.5)) && (number_.integral & 1)) {
       // exactly 0.5 and ODD, then round up
       // 1.5 -> 2, but 2.5 -> 2
       ++number_.integral;
@@ -812,19 +812,19 @@ static double log10_of_positive(double positive_number)
   // drop the exponent, so dwba.F comes into the range [1,2)
   dwba.U = (dwba.U & (((double_uint_t) (1) << DOUBLE_STORED_MANTISSA_BITS) - 1U)) |
            ((double_uint_t) DOUBLE_BASE_EXPONENT << DOUBLE_STORED_MANTISSA_BITS);
-  double z = (dwba.F - 1.5);
+  double z = (dwba.F - (double)1.5);
   return (
     // Taylor expansion around 1.5:
-    0.1760912590556812420           // Expansion term 0: ln(1.5)            / ln(10)
-    + z     * 0.2895296546021678851 // Expansion term 1: (M - 1.5)   * 2/3  / ln(10)
+    (double)0.1760912590556812420           // Expansion term 0: ln(1.5)            / ln(10)
+    + z     * (double)0.2895296546021678851 // Expansion term 1: (M - 1.5)   * 2/3  / ln(10)
 #if PRINTF_LOG10_TAYLOR_TERMS > 2
-    - z*z   * 0.0965098848673892950 // Expansion term 2: (M - 1.5)^2 * 2/9  / ln(10)
+    - z*z   * (double)0.0965098848673892950 // Expansion term 2: (M - 1.5)^2 * 2/9  / ln(10)
 #if PRINTF_LOG10_TAYLOR_TERMS > 3
-    + z*z*z * 0.0428932821632841311 // Expansion term 2: (M - 1.5)^3 * 8/81 / ln(10)
+    + z*z*z * (double)0.0428932821632841311 // Expansion term 2: (M - 1.5)^3 * 8/81 / ln(10)
 #endif
 #endif
     // exact log_2 of the exponent x, with logarithm base change
-    + exp2 * 0.30102999566398119521 // = exp2 * log_10(2) = exp2 * ln(2)/ln(10)
+    + (double)exp2 * (double)0.30102999566398119521 // = exp2 * log_10(2) = exp2 * ln(2)/ln(10)
   );
 }
 
@@ -859,7 +859,7 @@ static void print_exponential_number(output_gadget_t* output, double number, pri
 
 
   // Determine the decimal exponent
-  if (abs_number == 0.0) {
+  if (abs_number == (double)0.0) {
     // TODO: This is a special-case for 0.0 (and -0.0); but proper handling is required for denormals more generally.
     floored_exp10 = 0; // ... and no need to set a normalization factor or check the powers table
   }
@@ -981,7 +981,7 @@ static void print_floating_point(output_gadget_t* output, double value, printf_s
   }
 
   if (!prefer_exponential &&
-      ((value > PRINTF_FLOAT_NOTATION_THRESHOLD) || (value < -PRINTF_FLOAT_NOTATION_THRESHOLD))) {
+      ((value > (double)PRINTF_FLOAT_NOTATION_THRESHOLD) || (value < -(double)PRINTF_FLOAT_NOTATION_THRESHOLD))) {
     // The required behavior of standard printf is to print _every_ integral-part digit -- which could mean
     // printing hundreds of characters, overflowing any fixed internal buffer and necessitating a more complicated
     // implementation.
